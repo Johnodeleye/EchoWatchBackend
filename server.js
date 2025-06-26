@@ -1,8 +1,16 @@
-require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
+import dotenv from 'dotenv';
+import express from 'express';
+import { WebSocketServer } from 'ws';
+import cors from 'cors';
+import morgan from "morgan";
+import fs from 'fs';
+import path from 'path';
+// import axios from 'axios';
+import ffmpeg from 'fluent-ffmpeg';
+import { fileURLToPath } from "url";
+
 const app = express();
-const morgan = require("morgan");
+dotenv.config();
 
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
@@ -26,6 +34,56 @@ app.get("/", (req, res) => {
 
 //Start Server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
+});
+
+const wss = new WebSocketServer({ server });
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const uploadsDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+
+wss.on("connection", (ws) => {
+  console.log("Client connected");
+
+  let videoBuffer = Buffer.alloc(0);
+
+  ws.on("message", async (data) => {
+    videoBuffer = Buffer.concat([videoBuffer, data]);
+
+    const webmPath = path.join(uploadsDir, `chunk.webm`);
+    fs.writeFileSync(webmPath, videoBuffer);
+
+    const framePath = path.join(uploadsDir, `frame.jpg`);
+    ffmpeg(webmPath)
+      .screenshots({
+        count: 1,
+        folder: uploadsDir,
+        filename: "frame.jpg"
+      })
+      .on("end", async () => {
+        console.log("Frame extracted:", framePath);
+        // try {
+        //   const res = await axios.post("http://localhost:8000/detect", fs.createReadStream(framePath), {
+        //     headers: {
+        //       "Content-Type": "multipart/form-data"
+        //     }
+        //   });
+
+        //   if (res.data.threats && res.data.threats.length > 0) {
+        //     console.log("🚨 Threat Detected:", res.data.threats.join(", "));
+        //   }
+        // } catch (err) {
+        //   console.error("Detection error:", err.message);
+        // }
+      });
+
+    videoBuffer = Buffer.alloc(0);
+  });
+
+  ws.on("close", () => {
+    console.log("Client disconnected");
+  });
 });
