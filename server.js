@@ -45,8 +45,36 @@ const __dirname = path.dirname(__filename);
 const uploadsDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 
+const clients = new Set();
+
+//this is demo alert just demo 
+
+app.post("/api/demo-alert", (req, res) => {
+  const alert = {
+    type: "ALERT",
+    data: {
+      title: "Test Alert",
+      message: "This is a sending alers from backend",
+      timestamp: new Date().toISOString()
+    }
+  };
+
+  for (const client of clients) {
+    if (client.readyState === 1) { 
+      client.send(JSON.stringify(alert));
+    }
+  }
+
+  res.json({ success: true, sentTo: clients.size, message: "Alert sent to all connected clients", data: alert.data });
+});
+
+//node -e "require('http').request({method: 'POST', hostname: 'localhost', port: 5000, path: '/api/demo-alert'}, res => res.on('data', d => process.stdout.write(d))).end()"
+
+//Above is the node script to run the alerrt using node on demo
+
 wss.on("connection", (ws) => {
   console.log("Client connected");
+  clients.add(ws);
 
   let videoBuffer = Buffer.alloc(0);
 
@@ -63,27 +91,48 @@ wss.on("connection", (ws) => {
         folder: uploadsDir,
         filename: "frame.jpg"
       })
-      .on("end", async () => {
-        console.log("Frame extracted:", framePath);
-        // try {
-        //   const res = await axios.post("http://localhost:8000/detect", fs.createReadStream(framePath), {
-        //     headers: {
-        //       "Content-Type": "multipart/form-data"
-        //     }
-        //   });
+    .on("end", async () => {
+      console.log("Frame extracted:", framePath);
 
-        //   if (res.data.threats && res.data.threats.length > 0) {
-        //     console.log("🚨 Threat Detected:", res.data.threats.join(", "));
-        //   }
-        // } catch (err) {
-        //   console.error("Detection error:", err.message);
-        // }
-      });
+  // try {
+  //   const res = await axios.post("http://localhost:8000/detect", fs.createReadStream(framePath), {
+  //     headers: {
+  //       "Content-Type": "multipart/form-data"
+  //     }
+  //   });
+
+  //   const threats = res.data?.threats;
+
+  //   if (Array.isArray(threats) && threats.length > 0) {
+  //     console.log("Threat Detected:", threats.join(", "));
+
+  //     const alert = {
+  //       type: "ALERT",
+  //       data: {
+  //         title: "Suspicious Activity Detected",
+  //         message: `Threats: ${threats.join(", ")}`,
+  //         timestamp: new Date().toISOString()
+  //       }
+  //     };
+
+  //     for (const client of clients) {
+  //       if (client.readyState === 1) {
+  //         client.send(JSON.stringify(alert));
+  //       }
+  //     }
+  //   } else {
+  //     console.log("✅ No threats detected.");
+  //   }
+  // } catch (err) {
+  //   console.error("Detection error:", err.message);
+  // }
+});
 
     videoBuffer = Buffer.alloc(0);
   });
 
   ws.on("close", () => {
+    clients.delete(ws);
     console.log("Client disconnected");
   });
 });
