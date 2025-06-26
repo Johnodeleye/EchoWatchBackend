@@ -1,25 +1,26 @@
-import dotenv from 'dotenv';
-import express from 'express';
-import { WebSocketServer } from 'ws';
-import cors from 'cors';
+import dotenv from "dotenv";
+import express from "express";
+import { WebSocketServer } from "ws";
+import cors from "cors";
 import morgan from "morgan";
-import fs from 'fs';
-import path from 'path';
+import fs from "fs";
+import path from "path";
 // import axios from 'axios';
-import ffmpeg from 'fluent-ffmpeg';
+import ffmpeg from "fluent-ffmpeg";
 import { fileURLToPath } from "url";
 
 const app = express();
 dotenv.config();
 
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL 
-    : ['http://localhost:3000'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Set-Cookie'], 
+  origin:
+    process.env.NODE_ENV === "production"
+      ? process.env.FRONTEND_URL
+      : ["http://localhost:3000"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Cookie", "Set-Cookie"],
   credentials: true,
-  exposedHeaders: ['Set-Cookie']
+  exposedHeaders: ["Set-Cookie"],
 };
 
 // Middleware
@@ -30,7 +31,6 @@ app.use(morgan("dev"));
 app.get("/", (req, res) => {
   res.send("Echo--Watch API is running...");
 });
-
 
 //Start Server
 const PORT = process.env.PORT || 5000;
@@ -47,7 +47,7 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 
 const clients = new Set();
 
-//this is demo alert just demo 
+//this is demo alert just demo
 
 app.post("/api/demo-alert", (req, res) => {
   const alert = {
@@ -55,17 +55,22 @@ app.post("/api/demo-alert", (req, res) => {
     data: {
       title: "Test Alert",
       message: "This is a sending alers from backend",
-      timestamp: new Date().toISOString()
-    }
+      timestamp: new Date().toISOString(),
+    },
   };
 
   for (const client of clients) {
-    if (client.readyState === 1) { 
+    if (client.readyState === 1) {
       client.send(JSON.stringify(alert));
     }
   }
 
-  res.json({ success: true, sentTo: clients.size, message: "Alert sent to all connected clients", data: alert.data });
+  res.json({
+    success: true,
+    sentTo: clients.size,
+    message: "Alert sent to all connected clients",
+    data: alert.data,
+  });
 });
 
 //node -e "require('http').request({method: 'POST', hostname: 'localhost', port: 5000, path: '/api/demo-alert'}, res => res.on('data', d => process.stdout.write(d))).end()"
@@ -79,6 +84,12 @@ wss.on("connection", (ws) => {
   let videoBuffer = Buffer.alloc(0);
 
   ws.on("message", async (data) => {
+    if (!isBinary || !Buffer.isBuffer(data)) {
+      console.warn(
+        "Invalid data type received, expecting binary video buffer."
+      );
+      return;
+    }
     videoBuffer = Buffer.concat([videoBuffer, data]);
 
     const webmPath = path.join(uploadsDir, `chunk.webm`);
@@ -89,44 +100,49 @@ wss.on("connection", (ws) => {
       .screenshots({
         count: 1,
         folder: uploadsDir,
-        filename: "frame.jpg"
+        filename: "frame.jpg",
       })
-    .on("end", async () => {
-      console.log("Frame extracted:", framePath);
+      .on("end", async () => {
+        console.log("Frame extracted:", framePath);
 
-  // try {
-  //   const res = await axios.post("http://localhost:8000/detect", fs.createReadStream(framePath), {
-  //     headers: {
-  //       "Content-Type": "multipart/form-data"
-  //     }
-  //   });
+        // try {
+        //   const res = await axios.post("http://localhost:8000/detect", fs.createReadStream(framePath), {
+        //     headers: {
+        //       "Content-Type": "multipart/form-data"
+        //     }
+        //   });
 
-  //   const threats = res.data?.threats;
+        //   const threats = res.data?.threats;
 
-  //   if (Array.isArray(threats) && threats.length > 0) {
-  //     console.log("Threat Detected:", threats.join(", "));
+        //   if (Array.isArray(threats) && threats.length > 0) {
+        //     console.log("Threat Detected:", threats.join(", "));
 
-  //     const alert = {
-  //       type: "ALERT",
-  //       data: {
-  //         title: "Suspicious Activity Detected",
-  //         message: `Threats: ${threats.join(", ")}`,
-  //         timestamp: new Date().toISOString()
-  //       }
-  //     };
+        //     const alert = {
+        //       type: "ALERT",
+        //       data: {
+        //         title: "Suspicious Activity Detected",
+        //         message: `Threats: ${threats.join(", ")}`,
+        //         timestamp: new Date().toISOString()
+        //       }
+        //     };
 
-  //     for (const client of clients) {
-  //       if (client.readyState === 1) {
-  //         client.send(JSON.stringify(alert));
-  //       }
-  //     }
-  //   } else {
-  //     console.log("✅ No threats detected.");
-  //   }
-  // } catch (err) {
-  //   console.error("Detection error:", err.message);
-  // }
-});
+        //     for (const client of clients) {
+        //       if (client.readyState === 1) {
+        //         client.send(JSON.stringify(alert));
+        //       }
+        //     }
+        //   }
+        // } catch (err) {
+        //   console.error("Detection error:", err.message);
+        // }
+        fs.unlink(webmPath, (err) => {
+          if (err) {
+            console.error("Failed to delete chunk.webm:", err);
+          } else {
+            console.log("Temporary video chunk removed:", webmPath);
+          }
+        });
+      });
 
     videoBuffer = Buffer.alloc(0);
   });
