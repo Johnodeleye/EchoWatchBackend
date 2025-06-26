@@ -77,6 +77,24 @@ app.post("/api/demo-alert", (req, res) => {
 
 //Above is the node script to run the alerrt using node on demo
 
+const threatCooldown = new Map(); // Maps threat to timestamp
+const COOLDOWN_TIME = 30 * 1000; // 30 seconds
+
+function shouldSendAlert({ threats }) {
+  const now = Date.now();
+  const newThreats = [];
+
+  for (const threat of threats) {
+    const lastSeen = threatCooldown.get(threat) || 0;
+    if (now - lastSeen > COOLDOWN_TIME) {
+      newThreats.push(threat);
+      threatCooldown.set(threat, now);
+    }
+  }
+
+  return newThreats.length > 0 ? newThreats : null;
+}
+
 wss.on("connection", (ws) => {
   console.log("Client connected");
   clients.add(ws);
@@ -105,36 +123,43 @@ wss.on("connection", (ws) => {
       .on("end", async () => {
         console.log("Frame extracted:", framePath);
 
-        // try {
-        //   const res = await axios.post("http://localhost:8000/detect", fs.createReadStream(framePath), {
-        //     headers: {
-        //       "Content-Type": "multipart/form-data"
-        //     }
-        //   });
+        try {
+          const res = await axios.post(
+            "http://localhost:8000/detect",
+            fs.createReadStream(framePath),
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+              },
+            }
+          );
 
-        //   const threats = res.data?.threats;
+          const detectedThreats = res.data?.threats || [];
+          const threatsToAlert = shouldSendAlert(detectedThreats);
 
-        //   if (Array.isArray(threats) && threats.length > 0) {
-        //     console.log("Threat Detected:", threats.join(", "));
+          if (threatsToAlert) {
+            console.log("Threat Detected:", threatsToAlert.join(", "));
 
-        //     const alert = {
-        //       type: "ALERT",
-        //       data: {
-        //         title: "Suspicious Activity Detected",
-        //         message: `Threats: ${threats.join(", ")}`,
-        //         timestamp: new Date().toISOString()
-        //       }
-        //     };
+            const alert = {
+              type: "ALERT",
+              data: {
+                title: "Suspicious Activity Detected",
+                message: `Threats: ${threatsToAlert.join(", ")}`,
+                timestamp: new Date().toISOString(),
+              },
+            };
 
-        //     for (const client of clients) {
-        //       if (client.readyState === 1) {
-        //         client.send(JSON.stringify(alert));
-        //       }
-        //     }
-        //   }
-        // } catch (err) {
-        //   console.error("Detection error:", err.message);
-        // }
+            for (const client of clients) {
+              if (client.readyState === 1) {
+                client.send(JSON.stringify(alert));
+              }
+            }
+          } else {
+            console.log("Threat detected, but already alerted recently.");
+          }
+        } catch (err) {
+          console.error("Detection error:", err.message);
+        }
         fs.unlink(webmPath, (err) => {
           if (err) {
             console.error("Failed to delete chunk.webm:", err);
