@@ -9,7 +9,7 @@ const corsOptions = {
     ? process.env.FRONTEND_URL 
     : ['http://localhost:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Set-Cookie'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Set-Cookie'], 
   credentials: true,
   exposedHeaders: ['Set-Cookie']
 };
