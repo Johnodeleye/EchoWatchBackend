@@ -38,8 +38,10 @@ app.get("/", (req, res) => {
   res.send("Echo--Watch API is running...");
 });
 
+const phone = process.env.TWILIO_RECEIVER_WHATSAPP_NUMBER;
+
 app.post("/v1/whatsapp", async (req, res) => {
-  const { phone, message } = req.body;
+  const { message } = req.body;
   if (!phone || !message) {
     return res.status(400).json({ error: "Phone and message are required" });
   }
@@ -50,6 +52,8 @@ app.post("/v1/whatsapp", async (req, res) => {
       to: `whatsapp:${phone}`,
       body: message,
     });
+
+    if (response.ok)
 
     res.status(200).json({ success: true, sid: response.sid });
   } catch (error) {
