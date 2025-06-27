@@ -32,6 +32,17 @@ app.get("/", (req, res) => {
   res.send("Echo--Watch API is running...");
 });
 
+app.post("/v1/whatsapp", (req, res) => {
+  const { phone, message } = req.body;
+  if (!phone || !message) {
+    return res.status(400).json({ error: "Phone and message are required" });
+  }
+
+  // Here you would typically handle the WhatsApp message sending logic
+  // For now, we'll just return a success response
+  res.status(200).json({ success: true, phone, message: `Message sent to ${phone}: ${message}` });
+});
+
 //Start Server
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
