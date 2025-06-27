@@ -3,6 +3,7 @@ import express from "express";
 // import { WebSocketServer } from "ws";
 import cors from "cors";
 import morgan from "morgan";
+import twilio from "twilio";
 // import fs from "fs";
 // import path from "path";
 // // import axios from 'axios';
@@ -28,19 +29,40 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(morgan("dev"));
 
+const client = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
+
 app.get("/", (req, res) => {
   res.send("Echo--Watch API is running...");
 });
 
-app.post("/v1/whatsapp", (req, res) => {
+app.post("/v1/whatsapp", async (req, res) => {
   const { phone, message } = req.body;
   if (!phone || !message) {
     return res.status(400).json({ error: "Phone and message are required" });
   }
 
-  // Here you would typically handle the WhatsApp message sending logic
-  // For now, we'll just return a success response
-  res.status(200).json({ success: true, phone, message: `Message sent to ${phone}: ${message}` });
+  try {
+    const response = await client.messages.create({
+      from: process.env.TWILIO_WHATSAPP_NUMBER,
+      to: `whatsapp:${phone}`,
+      body: message,
+    });
+
+    res.status(200).json({ success: true, sid: response.sid });
+  } catch (error) {
+    console.error("WhatsApp send error:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+  res
+    .status(200)
+    .json({
+      success: true,
+      phone,
+      message: `Message sent to ${phone}: ${message}`,
+    });
 });
 
 //Start Server

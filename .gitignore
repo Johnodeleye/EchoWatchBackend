@@ -1,4 +1,8 @@
+# Ignore env files
+.env
+
+# Ignore dependency folders
 node_modules/
-.env*
+
+# Lock files (optional)
 package-lock.json
-.DS_Store
