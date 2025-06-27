@@ -53,8 +53,6 @@ app.post("/v1/whatsapp", async (req, res) => {
       body: message,
     });
 
-    if (response.ok)
-
     res.status(200).json({ success: true, sid: response.sid });
   } catch (error) {
     console.error("WhatsApp send error:", error);
